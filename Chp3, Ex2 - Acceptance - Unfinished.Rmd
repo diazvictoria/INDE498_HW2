@@ -1,0 +1,88 @@
+# Chapter 3, Exercise 2
+
+Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
+
+********************************************************************
+
+Issues: If you look at the summary of the linear regressions, you will see that there is a row of NA values and I don't know what that tells us. I was thinking of getting another dataset. 
+
+********************************************************************
+
+## Medical School Acceptance
+
+This dataset of 55 observations and 11 variables consists of school admission statuses and application information from liberal arts colleges in the Midwest. 
+
+```{r} 
+library(RCurl)
+
+# load the data
+AC <- read.csv(text=getURL("https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/Stat2Data/MedGPA.csv"))
+
+# create a binary variable to indicator if the person is female or male
+AC$Sex_bin = ifelse(AC$Sex == "F", 1, 0)
+
+# get rid of the original Accept and Sex columns
+AC = AC[ , !(names(AC) %in% c("Accept", "Sex"))]
+```
+
+  | Feature Name | Description                                |
+  |--------------|--------------------------------------------|
+  | Accept       | A=accpeted; D = denied                     |
+  | Acceptance   | 1=accepted; 0=denied                       |
+  | Sex          | F=female; M=male     |
+  | BCPM         | Bio/Chem/Physics/Math grade point average  |
+  | GPA          | College grade point average                |
+  | VR           | Verbal reasoning (subscore)                |
+  | PS           | Physical sciences (subscore)               |
+  | WS           | Writing sample (subcore)                   |
+  | BS           | Biological sciences (subscore)             |
+  | MCAT         | Score on the MCAT exam (sum of CR+PS+WS+BS)|
+  | Apps         | Number of medical schools applied to       |
+  
+
+We will create a logistic regression model with the predicators BCPM, GPA, VR, PS, WS, BS, and MCAT to predict if an applicant was either accepted or denied. We want to test if an applicant's acceptance is fully dependent on their test scores. 
+
+We see that the most significant predicators are the BS, PS, WS, and GPA. Also, this model accounts for about half of the null deviance. 
+
+After running this model, we see that there is a NA value in our data. It is the WS of observation 54. We will delete this observation and run the model again. 
+
+QUESTION: 
+WHY DID THE MCAT GIVE NA's?
+is.na(AC$MCAT) shows that there are no NAs in MCAT
+is.na(AC$WS) shows that there is one NA in WS 
+```{r}
+# fitting the model to the data
+logit.AC.1 <- glm(Acceptance ~ BCPM + GPA + VR + PS + WS + BS + MCAT, data = AC, family = "binomial") 
+summary(logit.AC.1)
+
+# Find which column has the missing value 
+sapply(AC, function(x) sum(is.na(x)))
+
+# Find the observation with the missing value
+m = which(is.na(AC$WS))
+m
+
+# Erase the observation with an NA value. 
+AC <- AC[c(c(1:53), c(55)), ]
+
+# fitting the model to the data (again)
+logit.AC.2 <- glm(Acceptance ~ BCPM + GPA + VR + PS + WS + BS + MCAT, data = AC, family = "binomial") 
+summary(logit.AC.2)
+
+# Method 1: Check to see if the model has any missing values 
+sapply(AC, function(x) sum(is.na(x)))
+
+# Method 2: Check to see if the model has any missing values 
+which(!complete.cases(AC))
+```
+
+
+Now we will test if the sex of a person or the number of medical schools that a person applies to has an affect on whether or not they get accepted. We conclude that the sex and number of schools applied to does not have a significant relationship with the chance of acceptance.
+```{r} 
+# fitting the model to the data
+logit.AC.3 <- glm(Acceptance ~ Sex_bin + Apps, data = AC, family = "binomial") 
+summary(logit.AC.3)
+
+```
+
+
