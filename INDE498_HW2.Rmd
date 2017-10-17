@@ -6,6 +6,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(rpart)
+library(rpart.plot)
+
 ```
 # Chapter 2, Exercise 3
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
@@ -32,6 +35,38 @@ Create a new binary variable based on AGE, by labeling the subjects whose age is
 
 # Chapter 3, Exercise 2
 Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
+
+## Medical School Admission
+The first dataset we chose to analyze was the MedGPA dataset from the Stat2Data package. This dataset contains data about medical school admission status and information on GPA and standardized test scores. A table that provides a description of the variables included in the data set is provided below.
+
+| Variable Name| Description                                                                                 |
+|--------------|---------------------------------------------------------------------------------------------|
+| Accept       | Status: A=accepted to medical school or D=denied admission                                  |
+| Acceptance   | Indicator for Accept: 1=accepted or 0=denied                                                |
+| Sex          | F=female or M=male                                                                          |
+| BCPM         | fuel consumption miles per US gallon                                                        |
+| GPA          | College grade point average                                 |
+| VR           | Verbal reasoning (subscore                                 |
+| PS           | Physical sciences (subscore)                                  |
+| WS           | Writing sample (subcore)                                 |
+| BS           | Biological sciences (subscore)                                  |
+| MCAT         | Score on the MCAT exam (sum of CR+PS+WS+BS)                                 |
+| Apps         | Number of medical schools applied to                                 |
+
+A logistic regression model was fitted using a backwards step variable selection. The final found the intercept, sex, GPA, PS, WS, and BS to be significant. Looking at the summary we can see that comparing males to females, males have a 2.84 increase in log odds of acceptance versus females. We also found that GPA, PS, and BS all have a negative log odds of admission for each unit of increase. Only WS had a positive log odds of admission for each unit of increase. This model can be used to assess a candidates probability of being accepted into medical school and can be used to give insight into what variables best increase their chance of acceptance. 
+
+```{r}
+df.ch3ex2.med <- read.csv("MedGPA.csv")
+ch3ex2.med.log <- glm( Accept~.,family=binomial(link='logit'),data=df.ch3ex2.med[,-c(1,3)])
+ch3ex2.med.log <- step(ch3ex2.med.log, direction = "backward", trace = 1)
+summary(ch3ex2.med.log)
+```
+Next a decision tree was fit on the same dataset. The tree only found BS to be the variable to split on. The tree does not have as much application in this context due to the limited data set size. If the data set size was larger, the tree would allow a participant to find the best values for each of the predictor variables that would best increase their chance of being accepted into medical school. 
+
+```{r}
+ch3ex2.med.tree <- rpart(Accept~., data=df.ch3ex2.med[,-c(1,3)], control = rpart.control(p = 0.0001))
+prp(ch3ex2.med.tree, varlen=3)
+```
 
 # Chapter 3, Exercise 3
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
