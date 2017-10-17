@@ -68,6 +68,30 @@ ch3ex2.med.tree <- rpart(Accept~., data=df.ch3ex2.med[,-c(1,3)], control = rpart
 prp(ch3ex2.med.tree, varlen=3)
 ```
 
+## Bad Health
+The second dataset we chose to analyze was the BadHealth dataset from the COUNT package. This dataset contains data about a German health survey data for the year 1998. A table that provides a description of the variables included in the data set is provided below.
+
+| Variable Name           | Description                                                                                 |
+|--------------           |---------------------------------------------------------------------------------------------|
+| Number of visits        | Number of visits to doctor during 1998                                 |
+| bad health              | 1=patient claims to be in bad health; 0=not in bad health                                               |
+| age                     | age of patient: 20-60                                                                          |
+
+A logistic regression model was fitted using a backwards step variable selection. The final found the intercept, number of visits, and age to be significant. Looking at the summary we can see that for every unit increase in the number of visits to the doctor, there is an increase of 0.22 log odds of the patient claiming to be in bad health. For every unit increase in the age of the patient, there is an increase of 0.05 log odds of the patient claiming to be in bad health. This type of model can be used to assess the health of patients using easily accessible data and can be used in policy making.
+
+```{r}
+df.ch3ex2.bh <- read.csv("badhealth.csv")
+ch3ex2.med.bh <- glm( badh~.,family=binomial(link='logit'),data=df.ch3ex2.bh[,-c(1)])
+ch3ex2.med.bh <- step(ch3ex2.med.bh, direction = "backward", trace = 1)
+summary(ch3ex2.med.bh)
+```
+Next a decision tree was fit on the same dataset. The tree split on number of visits twice and on age once. The tree found that if the number of visits is greater than 7.5, the patient most likely said they were in bad health. If the number of visits was less than 2.5, the patient most likely reported they were not in bad health. This type of model can to identify an easy rule of assessing the overall health of a population using the number of visits to the doctor. This could be pretty useful in policy making.  
+
+```{r}
+ch3ex2.bh.tree <- rpart(badh~., data=df.ch3ex2.bh[,-c(1)], control = rpart.control(p = 0.0001))
+prp(ch3ex2.bh.tree, varlen=3)
+```
+
 # Chapter 3, Exercise 3
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
 
