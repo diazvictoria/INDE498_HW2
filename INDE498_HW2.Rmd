@@ -20,11 +20,11 @@ The weighted mean squeare error in matrix is:
 \[ min(WMSE(b)) = \frac{1}{n} \sum_{i=1}^{n} w_{i}(y_i - x_ib)^2 \]
 
 We can rewrite $w_i$ in matrix form as $W$, which is a diaganol matrix where the $i_{th}$ diaganol element is the weight for the $x_{i}$ observation. In matrix form this is:
-\[  min(WMSE(b)) = \frac{1}{n} (Y-X\beta)^Tw(Y-X\beta)\]
+\[  min(WMSE(b)) = \frac{1}{n} (Y-X\beta)^TW(Y-X\beta)\]
 Expanding the terms:
 \[  min(WMSE(b)) = \frac{1}{n} (Y^TWY-Y^TWX\beta-\beta^TX^TWY+X^T\beta^TWX\beta)\]
 Differentiating with respect to $\beta$ and setting equal to zero:
-\[  min(WMSE(b)) = \frac{2}{n} (-X^TWY+X^TWXB)\]
+\[  min(WMSE(b)) = \frac{2}{n} (-X^TWY+X^TWX\beta)\]
 Setting this equal to 0, we get:
 \[  \hat\beta = (X^TWX)^{-1}(X^TWY) \]
 
@@ -32,6 +32,8 @@ Setting this equal to 0, we get:
 
 # Chapter 3, Exercise 1
 Create a new binary variable based on AGE, by labeling the subjects whose age is above the mean of AGE to be class “1” and labeling the subjects whose age is below the mean of AGE to be class “0”. Then, repeat the analysis shown in the R lab of this chapter for the logistic regression model and the analysis shown in the R lab of Chapter 2 for decision tree model. Identify the final models you would select, evaluate the models, and compare the regression model with the tree model.
+
+DONT USE MMSCORE, AGE, TOTAL13, DX_BL
 
 # Chapter 3, Exercise 2
 Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
