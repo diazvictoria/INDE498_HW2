@@ -209,11 +209,12 @@ A logistic regression model was fitted using a backwards step variable selection
 
 ```{r}
 df.ch3ex2.bh <- read.csv("badhealth.csv")
+df.ch3ex2.bh$badh <- as.factor(df.ch3ex2.bh$badh)
 ch3ex2.med.bh <- glm( badh~.,family=binomial(link='logit'),data=df.ch3ex2.bh[,-c(1)])
 ch3ex2.med.bh <- step(ch3ex2.med.bh, direction = "backward", trace = 1)
 summary(ch3ex2.med.bh)
 ```
-Next a decision tree was fit on the same dataset. The tree split on number of visits twice and on age once. The tree found that if the number of visits is greater than 7.5, the patient most likely said they were in bad health. If the number of visits was less than 2.5, the patient most likely reported they were not in bad health. This type of model can to identify an easy rule of assessing the overall health of a population using the number of visits to the doctor. This could be pretty useful in policy making.  
+Next a decision tree was fit on the same dataset. The tree split on number of visits and on age. The tree found that if the number of visits is greater than 14 and the patients age was greater than 36, the patient most likely said they were in bad health. If the number of visits was less than 7.5 or the patient was less than the age of 36, the patient most likely reported they were not in bad health. This type of model can to identify an easy rule of assessing the overall health of a population using the number of visits to the doctor, which would be useful in policy making.
 
 ```{r}
 ch3ex2.bh.tree <- rpart(badh~., data=df.ch3ex2.bh[,-c(1)], control = rpart.control(p = 0.0001))
