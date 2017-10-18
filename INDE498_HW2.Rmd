@@ -33,7 +33,133 @@ Setting this equal to 0, we get:
 # Chapter 3, Exercise 1
 Create a new binary variable based on AGE, by labeling the subjects whose age is above the mean of AGE to be class “1” and labeling the subjects whose age is below the mean of AGE to be class “0”. Then, repeat the analysis shown in the R lab of this chapter for the logistic regression model and the analysis shown in the R lab of Chapter 2 for decision tree model. Identify the final models you would select, evaluate the models, and compare the regression model with the tree model.
 
-DONT USE MMSCORE, AGE, TOTAL13, DX_BL
+We will use all of the predictors (except for AGE, MMSCORE, TOTAL13, and DX_bl) to predict where a person's age is above or below the mean age. 
+
+## Logistic Regression Model
+We begin by loading the data and creating new column named AGE_bin.
+AGE_bin: Contains "1" if the subject's age is >= mean(AGE); Contains "0" if the subject's age is < mean(AGE).
+```{r}
+library(RCurl)
+AD <- read.csv(text=getURL("https://raw.githubusercontent.com/shuailab/ind_498/master/resource/data/AD.csv"))
+AD$ID = c(1:dim(AD)[1])
+AD$AGE_bin = ifelse(AD$AGE >= mean(AD$AGE), 1, 0)
+AD = AD[ , !(names(AD) %in% c("AGE", "MMSCORE", "TOTAL13", "DX_bl"))]
+
+```
+
+Fitting our model using all of the predictors yields the significant predicators as HippoNV, e4_1, and PTEDUCAT.
+```{r}
+logit.AD.1 <- glm(AGE_bin ~ ., data = AD[, -c(15)], family = "binomial") 
+summary(logit.AD.1)
+```
+
+Fitting the model based on the significant predicators of the last model gives us that only two out of the three predictors (HippoNV and e4_1) are actually significant. 
+```{r}
+logit.AD.2 <- glm(AGE_bin ~ HippoNV + e4_1 + PTEDUCAT , data = AD[, -c(15)], family = "binomial") 
+summary(logit.AD.2)
+```
+
+We will use the following visualization of the relationships between some of the predicators and the outcome in order to make an educated guess on which other predictors should be considered. 
+
+None of the ploted variables seem to be able to properly classify the data (since all of the pairs of box overlap significantly). 
+```{r}
+require(reshape2)
+
+AD.long <- melt(AD[,c(2:5, 15, 16)], id.vars = c("ID", "AGE_bin"))
+
+# Plot the data using ggplot
+require(ggplot2)
+p <- ggplot(AD.long, aes(x = factor(AGE_bin), y = value))
+
+# boxplot, size=.75 to stand out behind CI
+p <- p + geom_boxplot(size = 0.75, alpha = 0.5)
+
+# points for observed data
+p <- p + geom_point(position = position_jitter(w = 0.05, h = 0), alpha = 0.1)
+
+# diamond at mean for each group
+p <- p + stat_summary(fun.y = mean, geom = "point", shape = 18, size = 6,
+                      alpha = 0.75, colour = "red")
+
+# confidence limits based on normal distribution
+p <- p + stat_summary(fun.data = "mean_cl_normal", geom = "errorbar",
+                      width = .2, alpha = 0.8)
+
+p <- p + facet_wrap( ~ variable, scales = "free_y", ncol = 3)
+
+
+p <- p + labs(title = "Boxplots of variables by mean(age) (0: < mean;1: >= mean)")
+
+print(p)
+```
+
+We will use the step() function to automatically choose the best model. The significant variables are  HippoNV, e4_1, and PTEDUCAT. This model explains all but 75.13 of the total deviance with 4 less degrees of freedom. 
+```{r} 
+logit.AD.full <- glm(AGE_bin ~ ., data = AD[!(names(AD) %in% c("ID"))], family = "binomial")
+logit.AD.final <- step(logit.AD.full, direction="both", trace = 0)
+summary(logit.AD.final)
+```
+
+We can find the 95% confidence intervals of the regression parameters.
+```{r}
+## CISs of the regression parameters using profiled log-likelihood 
+confint(logit.AD.final) 
+```
+
+We can also use the Wald Test to test the significance of the regression parameters.
+```{r} 
+library(aod) 
+ 
+wald.test(b = coef(logit.AD.final), Sigma = vcov(logit.AD.final), Terms = 2)
+```
+
+We will now test how our model works on data. We will randomnly choose 200 samples from the AD dataset to make AD.pred. We will create a 95% CI for these predications.
+```{r} 
+# Dataset that we will test our prediction model on 
+AD.pred <- AD[sample(1:dim(AD)[1], 200),]
+
+# pred will have our predictions
+pred <- predict(logit.AD.final, AD.pred, type = "link", se.fit = TRUE) 
+AD.pred$fit <- pred$fit 
+AD.pred$se.fit <- pred$se.fit
+
+# CI for fitted values
+AD.pred <- within(AD.pred, {
+  # add "fitted" to make predictions at appended temp values 
+  fitted = exp(fit)/(1 + exp(fit))
+  fit.lower = exp(fit - 1.96 * se.fit) / (1 + exp(fit - 1.96 * se.fit))
+  fit.upper = exp(fit + 1.96 *se.fit) / (1 + exp(fit + 1.96 * se.fit))
+})
+
+
+# Visualizing the predication 
+library(ggplot2)
+newData <- AD.pred[order(AD.pred$AGE_bin),]
+p <- ggplot(newData, aes(x = PTGENDER + PTEDUCAT + HippoNV + e4_1, y = AGE_bin))
+# predicted curve and point-wise 95% CI
+p <- p + geom_ribbon(aes(x = PTGENDER + PTEDUCAT + HippoNV + e4_1, ymin = fit.lower, ymax = fit.upper), alpha = 0.2)
+p <- p + geom_line(aes(x = PTGENDER + PTEDUCAT + HippoNV + e4_1, y = fitted), colour="red")
+# fitted values
+p <- p + geom_point(aes(y = fitted), size=2, colour="red")
+# observed values
+p <- p + geom_point(size = 2)
+p <- p + ylab("Probability")
+p <- p + labs(title = "Observed and predicted probability of Predicting Age")
+print(p)
+```
+
+We will test whether or not there is a lack-of-fit. Since dev.p.val is 8.162904e-05, which is not greater than 0.10, there is a large lack of model fit. We conclude that the error in our predictions are coming from a lack of fit from the model. 
+```{r}
+# Test residual deviance for lack-of-fit (if > 0.10, little-to-no lack-of-fit)
+dev.p.val <- 1 - pchisq(logit.AD.final$deviance, logit.AD.final$df.residual)
+dev.p.val
+```
+
+We will conclude by computing the odds ratios for our predicators and their corresponding 95% confidence intervals to determine the influence of the predictors. 
+```{r}
+## odds ratios and 95% CI
+exp(cbind(OR = coef(logit.AD.final), confint(logit.AD.final)))
+```
 
 # Chapter 3, Exercise 2
 Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
