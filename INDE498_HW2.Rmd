@@ -16,7 +16,7 @@ Pick up any dataset you have used, and randomly split the data into two halves. 
 # Chapter 2, Exercise 4 
 Consider the case that, in building linear regression models, there is a concern that some data points may be more important (or more trustable). Thus, it is not uncommon to assign a weight to each data point. Denote the weight for the ith data point as w_i. We still want to estimate the regression parameters in the least squares framework. Follow the process of the derivation of the least squares estimator and propose your new estimator of the regression parameters.
 
-The weighted mean squeare error in matrix is:
+The weighted mean square error in matrix is:
 \[ min(WMSE(b)) = \frac{1}{n} \sum_{i=1}^{n} w_{i}(y_i - x_ib)^2 \]
 
 We can rewrite $w_i$ in matrix form as $W$, which is a diaganol matrix where the $i_{th}$ diaganol element is the weight for the $x_{i}$ observation. In matrix form this is:
@@ -26,7 +26,7 @@ Expanding the terms:
 Differentiating with respect to $\beta$ and setting equal to zero:
 \[  min(WMSE(b)) = \frac{2}{n} (-X^TWY+X^TWX\beta)\]
 Setting this equal to 0, we get:
-\[  \hat\beta = (X^TWX)^{-1}(X^TWY) \]
+\[  \hat{\beta} = (X^TWX)^{-1}(X^TWY) \]
 
 
 
