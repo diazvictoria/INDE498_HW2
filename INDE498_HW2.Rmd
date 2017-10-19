@@ -161,6 +161,65 @@ We will conclude by computing the odds ratios for our predicators and their corr
 exp(cbind(OR = coef(logit.AD.final), confint(logit.AD.final)))
 ```
 
+## Decision Tree
+We now create a decision tree based on the dataset. We see that the splitting happens with regards to the predictors HippoNV, FDG, rs3865444, and rs610932. 
+```{r}
+AD$AGE_bin <- as.factor(AD$AGE_bin)
+AD.tree <- rpart(AGE_bin ~., data = AD[!(names(AD) %in% c("ID"))])
+prp(AD.tree, varlen=5)
+```
+
+When we look at the variable importance of each predictor, we see that the most important variables are HippoNV and FDG. 
+```{r}
+print(AD.tree$variable.importance)
+```
+
+
+Our objective is now to prune the tree. Testing different different values for cp, we see that our decision tree is most accurate when our tree has about 3 to 4 leaves. 
+```{r,cache=FALSE}
+library(magrittr)
+library(tidyr)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(partykit)
+
+set.seed(1)
+train.ix <- sample(nrow(AD),floor( nrow(AD)/2) )
+err.train.v <- NULL
+err.test.v <- NULL
+leaf.v <- NULL
+for(i in seq(0.2,0,by=-0.005) ){
+  tree <- rpart( AGE_bin ~ ., data = AD[train.ix,], cp=i  ) 
+  pred.train <- predict(tree, AD[train.ix,],type="class")
+  pred.test <- predict(tree, AD[-train.ix,],type="class")
+  current.err.train <- length(which(pred.train != AD[train.ix,]$AGE_bin))/length(pred.train)
+  current.err.test <- length(which(pred.test != AD[-train.ix,]$AGE_bin))/length(pred.test)
+  err.train.v <- c(err.train.v, current.err.train)
+  err.test.v <- c(err.test.v, current.err.test)
+  leaf.v <- c(leaf.v, length(which(tree$frame$var == "<leaf>")))
+}
+err.mat <- as.data.frame( cbind( train_err = err.train.v, test_err = err.test.v , leaf_num = leaf.v ) )
+err.mat$leaf_num <- as.factor( err.mat$leaf_num  )
+err.mat <- unique(err.mat)
+err.mat <- err.mat %>% gather(type, error, train_err,test_err)
+
+# visualizing this 
+data.plot <- err.mat %>% mutate(type = factor(type))
+ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_line() +
+  geom_point(size=3) 
+```
+
+We plot a more optimal decision tree which is only dependent on the two most important variables. 
+```{r}
+tree_0.05 <- prune(tree,cp =0.0319, depth = 3)
+prp(tree_0.05,nn.cex=1)
+```
+
+Both the logistic regression and the decision tree showed the importance of HippoNV as a predictor. The logistic model showed that PTGENDER, PTEDUCAT, and e4_1 are important predictors, while the decision tree showed that FDG is an important predictor. 
+
+
 # Chapter 3, Exercise 2
 Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
 
