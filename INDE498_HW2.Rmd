@@ -22,7 +22,7 @@ The weighted mean square error in matrix is:
 We can rewrite $w_i$ in matrix form as $W$, which is a diaganol matrix where the $i_{th}$ diaganol element is the weight for the $x_{i}$ observation. In matrix form this is:
 \[  min(WMSE(b)) = \frac{1}{n} (Y-X\beta)^TW(Y-X\beta)\]
 Expanding the terms:
-\[  min(WMSE(b)) = \frac{1}{n} (Y^TWY-Y^TWX\beta-\beta^TX^TWY+X^T\beta^TWX\beta)\]
+\[  min(WMSE(b)) = \frac{1}{n} (Y^TWY-Y^TWX\beta-\beta^TX^TWY+\beta^TX^TWX\beta)\]
 Differentiating with respect to $\beta$ and setting equal to zero:
 \[  min(WMSE(b)) = \frac{2}{n} (-X^TWY+X^TWX\beta)\]
 Setting this equal to 0, we get:
