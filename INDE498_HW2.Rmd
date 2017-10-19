@@ -12,7 +12,135 @@ library(rpart.plot)
 ```
 # Chapter 2, Exercise 3
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
-  
+
+```{r}
+#data set from Chapter 2, Exercise 1
+library(RCurl)
+AD <- read.csv(text=getURL("https://raw.githubusercontent.com/shuailab/ind_498/master/resource/data/AD2.csv"))
+AD$ID = c(1:dim(AD)[1])
+str(AD)
+```
+
+```{r}
+# try full-scale model - exclude MMSCORE as it is other output, trying to predict TOTAL13
+data <- AD[,c(1:18)]
+data <- subset(data, select = -c(MMSCORE) )
+names(data)
+
+data$TOTAL13<- floor(data$TOTAL13)
+
+#splitting the data by half
+sample_first_half <- sample(nrow(data),floor( nrow(data)/2) )
+
+check<-data[sample_first_half,]
+check_2<-data[-sample_first_half,]
+#because the nrow(check) = 258 and nrow(check_2) = 259, take one row out from check_2 to make both dataset in the same length
+check_2<-check_2[1:(nrow(check_2)-1),]
+
+
+#tree model - no model selection
+tree <- rpart( TOTAL13 ~ ., data = check) 
+prp(tree, nn.cex = 1)
+
+#regression model - no model selection
+lm.AD <- lm(TOTAL13 ~ ., data = check)
+summary(lm.AD)
+
+```
+
+```{r}
+
+#prediction - tree
+tree_pred_with_second_half<-floor(predict(tree, check_2))
+
+current_error_train <- length(which(tree_pred_with_second_half != check$TOTAL13))/length(tree_pred_with_second_half)
+
+MSE_tree<-mean((check$TOTAL13-tree_pred_with_second_half)^2)
+print(paste("MSE_tree is ",MSE_tree))
+
+#prediction - regression
+regression_pred_with_second_half<-floor(predict(lm.AD, check_2))
+MSE_re<-mean((check$TOTAL13-regression_pred_with_second_half)^2)
+print(paste("MSE_re is ",MSE_re))
+```
+
+Mean square error for regression is smaller than tree model. Therefore, we chose regression model over the tree model. We tried to farther improve the model in the next following sections.
+
+Improvement for regression model
+```{r}
+# model selection
+lm.AD.F <- step(lm.AD, direction="backward", test="F")
+summary(lm.AD.F)
+anova(lm.AD.F ,lm.AD)
+```
+
+
+Improvement for Tree
+```{r,cache=FALSE}
+set.seed(1)
+errintrain <- NULL
+errintest <- NULL
+leaf.v <- NULL
+cp<- NULL
+
+for(i in seq(0.2,0,by=-0.005) ){
+  tree <- rpart( TOTAL13 ~ ., data = check, cp= i  ) 
+  pred.train <- floor(predict(tree, check))
+  pred.test <- floor(predict(tree, check_2))
+  current_error_train <- length(which(pred.train != check$TOTAL13))/length(pred.train)
+  current_error_test <- length(which(pred.test != check_2$TOTAL13))/length(pred.test)
+  errintrain <- c(errintrain, current_error_train)
+  errintest <- c(errintest, current_error_test)
+  leaf.v <- c(leaf.v, length(which(tree$frame$var == "<leaf>")))
+  cp <- c(cp,i)
+}
+err.mat <- as.data.frame( cbind( train_err = errintrain, test_err = errintest , leaf_num = leaf.v ,cp_table = cp) )
+err.mat$leaf_num <- as.factor( err.mat$leaf_num  )
+err.mat <- unique(err.mat)
+err.mat <- err.mat %>% gather(type, error, train_err,test_err)
+print(err.mat)
+```
+
+
+The test errors and train errors according to different size of the leaf nodes are plotted.  Train errors generatlly decrease while the test errerors first decrease and then increase at leaf number eqauals to 4,5,6. As the gap between test and train error data is the smallest at leaf number equal to 4, the adequate number of leaf node would be 4. Other leaf numbers may result overfitting of predicted data more.
+```{r}
+data.plot <- err.mat %>% mutate(type = type)
+ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_line() +
+  geom_point(size=5) 
+
+```
+
+Final decision tree model can be selected with the 4 decision (leaf) nodes WITH cp = 0.05
+
+```{r}
+tree_0.05 <- prune(tree, cp = 0.05)
+prp(tree_0.05, nn.cex = 1)
+
+```
+
+
+
+```{r}
+#MSE for improved tree
+tree_pred_with_second_half_improved<-floor(predict(tree_0.05, check_2))
+
+current_error_train <- length(which(tree_pred_with_second_half_improved != check$TOTAL13))/length(tree_pred_with_second_half_improved)
+
+MSE_tree_improved<-mean((check$TOTAL13-tree_pred_with_second_half_improved)^2)
+print(paste("MSE_tree is ",MSE_tree))
+print(paste("MSE_tree_improved is ",MSE_tree_improved))
+
+#MSE for improved regression model
+regression_pred_with_second_half_improved<-floor(predict(lm.AD.F, check_2))
+MSE_re_improved<-mean((check$TOTAL13-regression_pred_with_second_half_improved)^2)
+print(paste("MSE_re is ",MSE_re))
+print(paste("MSE_re_improved is ",MSE_re_improved))
+```
+
+After improving the both regression and tree models, mean square error for each model decreased, indicating the improvement of the model predictions (for tree, MSE went down from 112.4 to 103.69 and for regression MSE went down from 102.94 to 100.68. For both original and improved model, we chose regression model over tree model because it had lower MSE. 
+
+Improvements in MSE between original tree model and regression model was bigger than those in MSE for improved model. The MSE differences for the original models was 9.46 (112.40 (tree)- 102.94 (regression) = 9.46). The MSE differences in improved models went down from 9.46 to 3.01 (103.69 (tree)- 100.68 (regression) = 3.01). This indicates that the model selection between improved tree and regression models became less distinctive than those between original models.
+
 # Chapter 2, Exercise 4 
 Consider the case that, in building linear regression models, there is a concern that some data points may be more important (or more trustable). Thus, it is not uncommon to assign a weight to each data point. Denote the weight for the ith data point as w_i. We still want to estimate the regression parameters in the least squares framework. Follow the process of the derivation of the least squares estimator and propose your new estimator of the regression parameters.
 
@@ -315,7 +443,121 @@ prp(ch3ex2.bh.tree, varlen=3)
 # Chapter 3, Exercise 3
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
 
+```{r}
+df.ch3ex2.med <- read.csv(".csv")
+
+df.ch3ex2.med<-df.ch3ex2.med[,-c(1,3)]
+#logit model with all data
+ch3ex2.med.log <- glm( Accept~.,family=binomial(link='logit'),data=df.ch3ex2.med)
+summary(ch3ex2.med.log)
+
+#divide dataset into two
+data <- df.ch3ex2.med
+sample_first_half <- sample(nrow(data),floor( nrow(data)/2) )
+
+check<-data[sample_first_half,-c(1,3)]
+
+ch3ex2.med_logit <- glm( Accept~.,family=binomial(link='logit'),data=check)
+summary(ch3ex2.med.log)
+
+check_2<-data[-sample_first_half,]
+#because the nrow(check) = 563 and nrow(check_2) = 564, take one row out from check_2 to make both dataset in the same length
+check_2<-check_2[1:(nrow(check_2)-1),]
+
+
+```
+  
+logistic regression model
+
+```{r}
+ch3ex2.med.med <- glm( Accept~.,family=binomial(link='logit'),data=check[,-c(1,3)])
+summary(ch3ex2.med.med)
+```
+
+Tree model
+```{r}
+ch3ex2.med.tree <- rpart(Accept~., data=check)
+prp(ch3ex2.med.tree, varlen=3)
+```
+
+
+```{r}
+
+#prediction - tree
+tree_pred_with_second_half<-round(predict(ch3ex2.med.tree , check_2),digits = 2)
+
+MSE_tree<-mean((check$badh-tree_pred_with_second_half)^2)
+print(paste("MSE_tree is ",MSE_tree))
+
+#prediction - regression
+regression_pred_with_second_half<-round(predict(ch3ex2.med.med , check_2),digits = 2)
+MSE_re<-mean((check$badh--regression_pred_with_second_half)^2)
+print(paste("MSE_re is ",MSE_re))
+```
+
+Improvement for regression model
+```{r}
+ch3ex2.med.med <- step(ch3ex2.med.med, direction = "backward", trace = 1)
+summary(ch3ex2.med.med)
+```
+Improvements for tree model
+```{r,cache=FALSE}
+set.seed(1)
+errintrain <- NULL
+errintest <- NULL
+leaf.v <- NULL
+cp<- NULL
+
+for(i in seq(0.2,0,by=-0.005) ){
+  ch3ex2.med.tree <- rpart( badh ~ ., data = check, cp= i  ) 
+  pred.train <- floor(predict(ch3ex2.med.tree, check))
+  pred.test <- floor(predict(ch3ex2.med.tree, check_2))
+  current_error_train <- length(which(pred.train != check$badh))/length(pred.train)
+  current_error_test <- length(which(pred.test != check_2$badh))/length(pred.test)
+  errintrain <- c(errintrain, current_error_train)
+  errintest <- c(errintest, current_error_test)
+  leaf.v <- c(leaf.v, length(which(ch3ex2.med.tree$frame$var == "<leaf>")))
+  cp <- c(cp,i)
+}
+err.mat <- as.data.frame( cbind( train_err = errintrain, test_err = errintest , leaf_num = leaf.v ,cp_table = cp) )
+err.mat$leaf_num <- as.factor( err.mat$leaf_num  )
+err.mat <- unique(err.mat)
+err.mat <- err.mat %>% gather(type, error, train_err,test_err)
+print(err.mat)
+```
+
+
+The test errors and train errors according to different size of the leaf nodes are plotted.  Train errors generatlly decrease while the test errerors first decrease and then increase at leaf number eqauals to 4,5,6. As the gap between test and train error data is the smallest at leaf number equal to 4, the adequate number of leaf node would be 4. Other leaf numbers may result overfitting of predicted data more.
+```{r}
+data.plot <- err.mat %>% mutate(type = type)
+ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_line() +
+  geom_point(size=5) 
+
+```
+
+Final decision tree model can be selected with the 4 decision (leaf) nodes WITH cp = 0.05
+
+```{r}
+tree_0.05 <- prune(tree, cp = 0.05)
+prp(tree_0.05, nn.cex = 1)
+
+```
 
 
 
+```{r}
+#MSE for improved tree
+tree_pred_with_second_half_improved<-floor(predict(tree_0.05, check_2))
 
+current_error_train <- length(which(tree_pred_with_second_half_improved != check$TOTAL13))/length(tree_pred_with_second_half_improved)
+
+MSE_tree_improved<-mean((check$TOTAL13-tree_pred_with_second_half_improved)^2)
+print(paste("MSE_tree is ",MSE_tree))
+print(paste("MSE_tree_improved is ",MSE_tree_improved))
+
+#MSE for improved regression model
+regression_pred_with_second_half_improved<-floor(predict(lm.AD.F, check_2))
+MSE_re_improved<-mean((check$TOTAL13-regression_pred_with_second_half_improved)^2)
+print(paste("MSE_re is ",MSE_re))
+print(paste("MSE_re_improved is ",MSE_re_improved))
+```
