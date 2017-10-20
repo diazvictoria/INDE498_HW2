@@ -181,7 +181,6 @@ AD <- read.csv(text=getURL("https://raw.githubusercontent.com/shuailab/ind_498/m
 AD$ID = c(1:dim(AD)[1])
 AD$AGE_bin = ifelse(AD$AGE >= mean(AD$AGE), 1, 0)
 AD = AD[ , !(names(AD) %in% c("AGE", "MMSCORE", "TOTAL13", "DX_bl"))]
-
 ```
 
 Fitting our model using all of the predictors yields the significant predicators as HippoNV, e4_1, and PTEDUCAT.
@@ -216,11 +215,11 @@ p <- p + geom_point(position = position_jitter(w = 0.05, h = 0), alpha = 0.1)
 
 # diamond at mean for each group
 p <- p + stat_summary(fun.y = mean, geom = "point", shape = 18, size = 6,
-                      alpha = 0.75, colour = "red")
+alpha = 0.75, colour = "red")
 
 # confidence limits based on normal distribution
 p <- p + stat_summary(fun.data = "mean_cl_normal", geom = "errorbar",
-                      width = .2, alpha = 0.8)
+width = .2, alpha = 0.8)
 
 p <- p + facet_wrap( ~ variable, scales = "free_y", ncol = 3)
 
@@ -237,7 +236,7 @@ logit.AD.final <- step(logit.AD.full, direction="both", trace = 0)
 summary(logit.AD.final)
 ```
 
-We can find the 95% confidence intervals of the regression parameters.
+We can find the 95% confidence intervals of the regression parameters. We notice that the largest 95% confidence interval is for HippoNV and the smallest 95% confidence interval is for PTGENDER. This tells us that the estimated coefficient of PTGENDER is more accurate than that of HippoNV. 
 ```{r}
 ## CISs of the regression parameters using profiled log-likelihood 
 confint(logit.AD.final) 
@@ -246,13 +245,16 @@ confint(logit.AD.final)
 We can also use the Wald Test to test the significance of the regression parameters.
 ```{r} 
 library(aod) 
- 
+
 wald.test(b = coef(logit.AD.final), Sigma = vcov(logit.AD.final), Terms = 2)
 ```
 
 If our model simply depended on one predicator, say HippoNV, then we would be able to test how our model works on the data. We would do this by randomly choosing 200 samples from the AD dataset to make AD.pred. Then we would visualize these predictions and their 95% CIs.
+
+We see that the 'tails' of the curve made by the red points do not match up with points at the end of the black lines. This means that HippoNV isn't a good predictor of AGE_bin even at the most extreme cases. 
 ```{r} 
 # Dataset that we will test a model with one predictor: HippoNV
+set.seed(1)
 AD.pred <- AD[sample(1:dim(AD)[1], 200),]
 
 # pred will have our predictions
@@ -283,14 +285,14 @@ p <- p + geom_point(size = 2)
 p <- p + ylab("Probability")
 p <- p + labs(title = "Observed and predicted probability of Predicting Age")
 print(p)
-
 ```
 
-Since our optimal model depends on several predictors, we can't use this method od visualization. 
-We will use the following confusion matrix to see how well we can predict the output based on our optimal model. 
-We see that the diagonal elements of our confusion matrix are not very optimized. This means that our model does not do a good job at predicting the outcome variable.
+Since our optimal model depends on several predictors, we can't use the above method of visualization.
+
+We will use the following confusion matrix to see how well we can predict the output based on our optimal model. We see that our model gave 127 correct predictions and 73 incorrect predications. Our model has an accurary rate 63.5% on this randomly chosen subset of data.
 ```{r}
 # Dataset that we will test a model with one predictor: HippoNV
+set.seed(1)
 AD.pred <- AD[sample(1:dim(AD)[1], 200),]
 
 # pred will have our predictions
@@ -300,10 +302,10 @@ AD.pred$se.fit <- pred$se.fit
 
 # CI for fitted values
 AD.pred <- within(AD.pred, {
-  # add "fitted" to make predictions at appended temp values 
-  fitted = exp(fit)/(1 + exp(fit))
-  fit.lower = exp(fit - 1.96 * se.fit) / (1 + exp(fit - 1.96 * se.fit))
-  fit.upper = exp(fit + 1.96 *se.fit) / (1 + exp(fit + 1.96 * se.fit))
+# add "fitted" to make predictions at appended temp values 
+fitted = exp(fit)/(1 + exp(fit))
+fit.lower = exp(fit - 1.96 * se.fit) / (1 + exp(fit - 1.96 * se.fit))
+fit.upper = exp(fit + 1.96 *se.fit) / (1 + exp(fit + 1.96 * se.fit))
 })
 
 # creating the confusion table
@@ -312,8 +314,7 @@ table(AD.pred$AGE_bin_predict, AD.pred$AGE_bin)
 ```
 
 
-Another way to visualize our predictions would be to use the following boxplots. We see that our predictions are not very accurate. We see this since the boxes are overlapping and are not very thin. 
-
+Another way to visualize our predictions would be to use the following boxplots. We see that our predictions are not super accurate. We see this since the boxes are overlapping and are not very thin. 
 ```{r}
 # evaluate how well the model fits the data
 # predicted probabilities
@@ -326,7 +327,7 @@ cor(Yhat,AD$AGE_bin)
 tempData = cbind(Yhat,AD$AGE_bin)
 require(ggplot2)
 qplot(factor(AD$AGE_bin), Yhat, data = AD, 
-      geom=c("boxplot"), fill = factor(AD$AGE_bin),title="Prediction versus Observed")
+geom=c("boxplot"), fill = factor(AD$AGE_bin),title="Prediction versus Observed")
 ```
 
 We will test whether or not there is a lack-of-fit. Since dev.p.val is 8.162904e-05, which is not greater than 0.10, there is a large lack of model fit. We conclude that the error in our predictions are coming from a lack of fit from the model. 
@@ -336,7 +337,7 @@ dev.p.val <- 1 - pchisq(logit.AD.final$deviance, logit.AD.final$df.residual)
 dev.p.val
 ```
 
-We will conclude by computing the odds ratios for our predicators and their corresponding 95% confidence intervals to determine the influence of the predictors. 
+We will conclude by computing the odds ratios for our predicators and their corresponding 95% confidence intervals to determine the influence of the predictors. Again, the most narrow confidence interval belongs to PTEDUCAT.
 ```{r}
 ## odds ratios and 95% CI
 exp(cbind(OR = coef(logit.AD.final), confint(logit.AD.final)))
@@ -372,16 +373,16 @@ err.train.v <- NULL
 err.test.v <- NULL
 leaf.v <- NULL
 for(i in seq(0.2,0,by=-0.005) ){
-  tree <- rpart( AGE_bin ~ ., data = AD[train.ix,], cp=i  ) 
-  pred.train <- predict(tree, AD[train.ix,],type="class")
-  pred.test <- predict(tree, AD[-train.ix,],type="class")
-  current.err.train <- length(which(pred.train != AD[train.ix,]$AGE_bin))/length(pred.train)
-  current.err.test <- length(which(pred.test != AD[-train.ix,]$AGE_bin))/length(pred.test)
-  err.train.v <- c(err.train.v, current.err.train)
-  err.test.v <- c(err.test.v, current.err.test)
-  leaf.v <- c(leaf.v, length(which(tree$frame$var == "<leaf>")))
+tree <- rpart( AGE_bin ~ ., data = AD[train.ix,], cp=i  ) 
+pred.train <- predict(tree, AD[train.ix,],type="class")
+pred.test <- predict(tree, AD[-train.ix,],type="class")
+current.err.train <- length(which(pred.train != AD[train.ix,]$AGE_bin))/length(pred.train)
+current.err.test <- length(which(pred.test != AD[-train.ix,]$AGE_bin))/length(pred.test)
+err.train.v <- c(err.train.v, current.err.train)
+err.test.v <- c(err.test.v, current.err.test)
+leaf.v <- c(leaf.v, length(which(tree$frame$var == "<leaf>")))
 }
-err.mat <- as.data.frame( cbind( train_err = err.train.v, test_err = err.test.v , leaf_num = leaf.v) )
+err.mat <- as.data.frame( cbind( train_err = err.train.v, test_err = err.test.v , leaf_num = leaf.v ) )
 err.mat$leaf_num <- as.factor( err.mat$leaf_num  )
 err.mat <- unique(err.mat)
 err.mat <- err.mat %>% gather(type, error, train_err,test_err)
@@ -389,7 +390,7 @@ err.mat <- err.mat %>% gather(type, error, train_err,test_err)
 # visualizing this 
 data.plot <- err.mat %>% mutate(type = factor(type))
 ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_line() +
-  geom_point(size=3) 
+geom_point(size=3) 
 ```
 
 We plot a more optimal decision tree which is only dependent on the two most important variables. 
@@ -398,8 +399,7 @@ tree_0.05 <- prune(tree,cp =0.0319, depth = 3)
 prp(tree_0.05,nn.cex=1)
 ```
 
-Both the logistic regression and the decision tree showed the importance of HippoNV as a predictor. The logistic model showed that PTGENDER, PTEDUCAT, and e4_1 are important predictors, while the decision tree showed that FDG is an important predictor. 
-
+Both the logistic regression and the decision tree showed the importance of HippoNV as a predictor. The logistic model showed that PTGENDER, PTEDUCAT, and e4_1 are important predictors, while the decision tree showed that FDG is an important predictor. It isn't uncanny that the logistic model and decision tree identified different predicators as the most significant. However, both models showed strong evidence of the importance of the volume of the hippocampus in determining whether a person's age was above or below the mean age of those in the study. 
 
 # Chapter 3, Exercise 2
 Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
