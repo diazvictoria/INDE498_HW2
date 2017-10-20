@@ -1,7 +1,9 @@
 ---
 title: "INDE498_HW2"
 author: "Steven Hwang, Haena Kim, Victoria Diaz"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +25,7 @@ str(AD)
 
 ```{r}
 # try full-scale model - exclude MMSCORE as it is other output, trying to predict TOTAL13
+
 data <- AD[,c(1:18)]
 data <- subset(data, select = -c(MMSCORE) )
 names(data)
@@ -30,9 +33,11 @@ names(data)
 data$TOTAL13<- floor(data$TOTAL13)
 
 #splitting the data by half
+set.seed(1)
 sample_first_half <- sample(nrow(data),floor( nrow(data)/2) )
-
+set.seed(1)
 check<-data[sample_first_half,]
+set.seed(1)
 check_2<-data[-sample_first_half,]
 #because the nrow(check) = 258 and nrow(check_2) = 259, take one row out from check_2 to make both dataset in the same length
 check_2<-check_2[1:(nrow(check_2)-1),]
@@ -108,7 +113,7 @@ print(err.mat)
 ```
 
 
-The test errors and train errors according to different size of the leaf nodes are plotted.  Train errors generatlly decrease while the test errerors first decrease and then increase at leaf number eqauals to 4,5,6. As the gap between test and train error data is the smallest at leaf number equal to 4, the adequate number of leaf node would be 4. Other leaf numbers may result overfitting of predicted data more.
+As the gap between test and train error data is the smallest at leaf number equal to 24, the adequate number of leaf node would be 24. Other leaf numbers may result overfitting or underfitting of predicted data more.
 ```{r}
 data.plot <- err.mat %>% mutate(type = type)
 ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_line() +
@@ -116,10 +121,10 @@ ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_lin
 
 ```
 
-Final decision tree model can be selected with the 4 decision (leaf) nodes WITH cp = 0.05
+Final decision tree model can be selected with the 24 decision (leaf) nodes WITH cp = 0
 
 ```{r}
-tree_0.05 <- prune(tree, cp = 0.05)
+tree_0.05 <- prune(tree, cp = 0)
 prp(tree_0.05, nn.cex = 1)
 
 ```
@@ -143,9 +148,7 @@ print(paste("MSE_re is ",MSE_re))
 print(paste("MSE_re_improved is ",MSE_re_improved))
 ```
 
-After improving the both regression and tree models, mean square error for each model decreased, indicating the improvement of the model predictions (for tree, MSE went down from 112.4 to 103.69 and for regression MSE went down from 102.94 to 100.68. For both original and improved model, we chose regression model over tree model because it had lower MSE. 
-
-Improvements in MSE between original tree model and regression model was bigger than those in MSE for improved model. The MSE differences for the original models was 9.46 (112.40 (tree)- 102.94 (regression) = 9.46). The MSE differences in improved models went down from 9.46 to 3.01 (103.69 (tree)- 100.68 (regression) = 3.01). This indicates that the model selection between improved tree and regression models became less distinctive than those between original models.
+After improving the both regression and tree models, mean square error for regression model decreased indicating the improvement of the model predictions. However, for tree model MSE increased. we chose regression model over tree model because it had lower MSE. The MSE differences between original model and improved model in tree model was bigger than those in regression model. 
 
 # Chapter 2, Exercise 4 
 Consider the case that, in building linear regression models, there is a concern that some data points may be more important (or more trustable). Thus, it is not uncommon to assign a weight to each data point. Denote the weight for the ith data point as w_i. We still want to estimate the regression parameters in the least squares framework. Follow the process of the derivation of the least squares estimator and propose your new estimator of the regression parameters.
@@ -462,11 +465,11 @@ prp(ch3ex2.bh.tree, varlen=3)
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
 
 ```{r}
-df.ch3ex2.bh <- read.csv("badhealth.csv")
+df.ch3ex3.bh <- read.csv("badhealth.csv")
 # df.ch3ex2.bh$badh <- as.factor(df.ch3ex2.bh$badh)
 
 #divide dataset into two
-data <- df.ch3ex2.bh[,-c(1)]
+data <- df.ch3ex3.bh[,-c(1)]
 sample_first_half <- sample(nrow(data),floor( nrow(data)/2) )
 
 check<-data[sample_first_half,]
@@ -672,6 +675,7 @@ auc <- unlist(slot(auc,"y.values"))
 auc
 legend(.6,.3,round(auc,digits=3),title="AUC")
 
+x <- c(1:nrow(check_2)) 
 for (i in x){
 if (check_2[i,]$se.fit >= cut){
   check_2[i,"pred"]  <- 1
