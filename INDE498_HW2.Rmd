@@ -2,7 +2,6 @@
 title: "INDE498_HW2"
 author: "Steven Hwang, Haena Kim, Victoria Diaz"
 output:
-  pdf_document: default
   html_document: default
 ---
 
@@ -154,14 +153,14 @@ After improving the both regression and tree models, mean square error for regre
 Consider the case that, in building linear regression models, there is a concern that some data points may be more important (or more trustable). Thus, it is not uncommon to assign a weight to each data point. Denote the weight for the ith data point as w_i. We still want to estimate the regression parameters in the least squares framework. Follow the process of the derivation of the least squares estimator and propose your new estimator of the regression parameters.
 
 The weighted mean square error in matrix is:
-\[ min(WMSE(b)) = \frac{1}{n} \sum_{i=1}^{n} w_{i}(y_i - x_ib)^2 \]
+\[ min(WMSE(b)) =  \sum_{i=1}^{n} w_{i}(y_i - x_ib)^2 \]
 
 We can rewrite $w_i$ in matrix form as $W$, which is a diaganol matrix where the $i_{th}$ diaganol element is the weight for the $x_{i}$ observation. In matrix form this is:
-\[  min(WMSE(b)) = \frac{1}{n} (Y-X\beta)^TW(Y-X\beta)\]
+\[  min(WMSE(b)) =  (Y-X\beta)^TW(Y-X\beta)\]
 Expanding the terms:
-\[  min(WMSE(b)) = \frac{1}{n} (Y^TWY-Y^TWX\beta-\beta^TX^TWY+\beta^TX^TWX\beta)\]
+\[  min(WMSE(b)) =  (Y^TWY-Y^TWX\beta-\beta^TX^TWY+\beta^TX^TWX\beta)\]
 Differentiating with respect to $\beta$ and setting equal to zero:
-\[  min(WMSE(b)) = \frac{2}{n} (-X^TWY+X^TWX\beta)\]
+\[  min(WMSE(b)) = 2 (-X^TWY+X^TWX\beta)\]
 Setting this equal to 0, we get:
 \[  \hat{\beta} = (X^TWX)^{-1}(X^TWY) \]
 
@@ -399,7 +398,7 @@ tree_0.05 <- prune(tree,cp =0.0319, depth = 3)
 prp(tree_0.05,nn.cex=1)
 ```
 
-Both the logistic regression and the decision tree showed the importance of HippoNV as a predictor. The logistic model showed that PTGENDER, PTEDUCAT, and e4_1 are important predictors, while the decision tree showed that FDG is an important predictor. It isn't uncanny that the logistic model and decision tree identified different predicators as the most significant. However, both models showed strong evidence of the importance of the volume of the hippocampus in determining whether a person's age was above or below the mean age of those in the study. 
+Both the logistic regression and the decision tree showed the importance of HippoNV as a predictor. The logistic model showed that PTGENDER, PTEDUCAT, and e4_1 are important predictors, while the decision tree showed that FDG is an important predictor. It isn't uncanny that the logistic model and decision tree identified different predicators as the most significant. However, both models showed strong evidence of the importance of the volumne of the hippocampus in determining whether a person's age was above or below the mean age of those in the study. 
 
 # Chapter 3, Exercise 2
 Find two datasets from the UCI data repository or R datasets. Conduct a detailed analysis for both datasets using both logistic regression model and the tree model, e.g., for regression model, you may want to conduct model selection, model comparison, testing of the significance of the regression parameters, evaluation of the R-squared and significance of the model. Also comment on the application of your model on the context of the dataset you have selected.
