@@ -77,6 +77,7 @@ anova(lm.AD.F ,lm.AD)
 
 Improvement for Tree
 ```{r,cache=FALSE}
+library(dplyr)
 set.seed(1)
 errintrain <- NULL
 errintest <- NULL
@@ -328,7 +329,7 @@ for(i in seq(0.2,0,by=-0.005) ){
   err.test.v <- c(err.test.v, current.err.test)
   leaf.v <- c(leaf.v, length(which(tree$frame$var == "<leaf>")))
 }
-err.mat <- as.data.frame( cbind( train_err = err.train.v, test_err = err.test.v , leaf_num = leaf.v ) )
+err.mat <- as.data.frame( cbind( train_err = err.train.v, test_err = err.test.v , leaf_num = leaf.v) )
 err.mat$leaf_num <- as.factor( err.mat$leaf_num  )
 err.mat <- unique(err.mat)
 err.mat <- err.mat %>% gather(type, error, train_err,test_err)
@@ -412,120 +413,251 @@ prp(ch3ex2.bh.tree, varlen=3)
 Pick up any dataset you have used, and randomly split the data into two halves. Use one half to build the tree model and the regression model. Test the models’ prediction performances on the second half. Report what you have found, adjust your way of model building, and suggest a strategy to find the model you consider as the best.
 
 ```{r}
-df.ch3ex2.med <- read.csv(".csv")
-
-df.ch3ex2.med<-df.ch3ex2.med[,-c(1,3)]
-#logit model with all data
-ch3ex2.med.log <- glm( Accept~.,family=binomial(link='logit'),data=df.ch3ex2.med)
-summary(ch3ex2.med.log)
+df.ch3ex2.bh <- read.csv("badhealth.csv")
+# df.ch3ex2.bh$badh <- as.factor(df.ch3ex2.bh$badh)
 
 #divide dataset into two
-data <- df.ch3ex2.med
+data <- df.ch3ex2.bh[,-c(1)]
 sample_first_half <- sample(nrow(data),floor( nrow(data)/2) )
 
-check<-data[sample_first_half,-c(1,3)]
-
-ch3ex2.med_logit <- glm( Accept~.,family=binomial(link='logit'),data=check)
-summary(ch3ex2.med.log)
-
-check_2<-data[-sample_first_half,]
-#because the nrow(check) = 563 and nrow(check_2) = 564, take one row out from check_2 to make both dataset in the same length
-check_2<-check_2[1:(nrow(check_2)-1),]
-
-
+check<-data[sample_first_half,]
 ```
   
 logistic regression model
 
 ```{r}
-ch3ex2.med.med <- glm( Accept~.,family=binomial(link='logit'),data=check[,-c(1,3)])
-summary(ch3ex2.med.med)
-```
+check$badh <- as.factor(check$badh)
 
-Tree model
-```{r}
-ch3ex2.med.tree <- rpart(Accept~., data=check)
-prp(ch3ex2.med.tree, varlen=3)
+ch3ex3.bh_logit <- glm( badh~.,family=binomial(link='logit'),data=check[,-c(4)])
+summary(ch3ex3.bh_logit)
 ```
-
+numvisit and age are significant as their p-value is less than 0.05. Out of total devience of 346.77, 346.77-294.17 = 52.6 could be explained by the predictor numvisit and age. 
 
 ```{r}
-
-#prediction - tree
-tree_pred_with_second_half<-round(predict(ch3ex2.med.tree , check_2),digits = 2)
-
-MSE_tree<-mean((check$badh-tree_pred_with_second_half)^2)
-print(paste("MSE_tree is ",MSE_tree))
-
-#prediction - regression
-regression_pred_with_second_half<-round(predict(ch3ex2.med.med , check_2),digits = 2)
-MSE_re<-mean((check$badh--regression_pred_with_second_half)^2)
-print(paste("MSE_re is ",MSE_re))
+confint(ch3ex3.bh_logit)
 ```
+
+```{r}
+library(aod)
+
+wald.test(b = coef(ch3ex3.bh_logit),Sigma=vcov(ch3ex3.bh_logit), Terms=2)
+```
+
+```{r}
+
+check_2<-data[-sample_first_half,]
+#because the nrow(check) = 563 and nrow(check_2) = 564, take one row out from check_2 to make both dataset in the same length
+check_2<-check_2[1:(nrow(check_2)-1),]
+
+# To predict on a given dataset
+colnames(check_2) <- paste("",colnames(check_2),sep="")
+
+# predict() uses all the temp values in dataset, including appended values
+pred <- predict(ch3ex3.bh_logit, check_2, type = "link", se.fit = TRUE)
+check_2$fit <- pred$fit
+check_2$se.fit <- pred$se.fit
+```
+
+
+```{r}
+# CI for fitted values
+check_2 <- within(check_2, {
+ # added "fitted" to make predictions at appended temp values
+ fitted = exp(fit) / (1 + exp(fit))
+ fit.lower = exp(fit - 1.96 * se.fit) / (1 + exp(fit - 1.96 * se.fit))
+ fit.upper = exp(fit + 1.96 * se.fit) / (1 + exp(fit + 1.96 * se.fit))
+})
+```
+
+
+relationship with numvisit and badh
+```{r}
+# visualize the prediction
+library(ggplot2)
+
+
+newData <- check_2[order(check_2$numvisit),]
+p <- ggplot(newData, aes(x = numvisit, y = badh))
+print(p)
+# predicted curve and point-wise 95% CI
+p <- p + geom_ribbon(aes(x = numvisit, ymin = fit.lower, ymax = fit.upper), alpha = 0.2)
+p <- p + geom_line(aes(x = numvisit, y = fitted), colour="red")
+# fitted values
+p <- p + geom_point(aes(x = numvisit,y = fitted), size=2, colour="red")
+# observed values
+p <- p + geom_point(size = 2)
+p <- p + ylab("Probability")
+p <- p + labs(title = "Observed and predicted probability of numvisit")
+print(p)
+```
+As the graph(relationship between numvisit and badh) shows a logit curve and the prediction confidences are fairly small as the graph shows tight 95% CIs.
+
+Trying other variables
+```{r}
+# install.packages("reshape2")
+require(reshape2)
+require(ggplot2)
+check$ID = c(1:dim(check)[1])
+AD.long <- melt(check[,], id.vars = c("ID", "badh"))
+
+# Plot the data using ggplot
+require(ggplot2)
+p <- ggplot(AD.long, aes(x = factor(badh), y = value))
+# boxplot, size=.75 to stand out behind CI
+p <- p + geom_boxplot(size = 0.75, alpha = 0.5)
+# points for observed data
+p <- p + geom_point(position = position_jitter(w = 0.05, h = 0),
+alpha = 0.1)
+# diamond at mean for each group
+p <- p + stat_summary(fun.y = mean, geom = "point", shape = 18, size = 6,
+ alpha = 0.75, colour = "red")
+
+# confidence limits based on normal distribution
+p <- p + stat_summary(fun.data = "mean_cl_normal", geom = "errorbar",
+ width = .2, alpha = 0.8)
+p <- p + facet_wrap( ~ variable, scales = "free_y", ncol = 3)
+p <- p + labs(title = "Boxplots of variables by diagnosis")
+print(p)
+```
+Both predictors numvisit and age seem to be able to classify two classes significantly. 
+
 
 Improvement for regression model
 ```{r}
-ch3ex2.med.med <- step(ch3ex2.med.med, direction = "backward", trace = 1)
-summary(ch3ex2.med.med)
+ch3ex3.bh_logit_improved <- step(ch3ex3.bh_logit, direction = "backward", trace = 1)
+summary(ch3ex3.bh_logit_improved)
 ```
-Improvements for tree model
-```{r,cache=FALSE}
-set.seed(1)
-errintrain <- NULL
-errintest <- NULL
-leaf.v <- NULL
-cp<- NULL
+Chi-square test for original logit regression model
 
-for(i in seq(0.2,0,by=-0.005) ){
-  ch3ex2.med.tree <- rpart( badh ~ ., data = check, cp= i  ) 
-  pred.train <- floor(predict(ch3ex2.med.tree, check))
-  pred.test <- floor(predict(ch3ex2.med.tree, check_2))
-  current_error_train <- length(which(pred.train != check$badh))/length(pred.train)
-  current_error_test <- length(which(pred.test != check_2$badh))/length(pred.test)
-  errintrain <- c(errintrain, current_error_train)
-  errintest <- c(errintest, current_error_test)
-  leaf.v <- c(leaf.v, length(which(ch3ex2.med.tree$frame$var == "<leaf>")))
-  cp <- c(cp,i)
+```{r}
+# Test residual deviance for lack-of-fit (if > 0.10, little-to-no lack-of-fit)
+dev.p.val <- 1 - pchisq(ch3ex3.bh_logit$deviance, ch3ex3.bh_logit$df.residual)
+
+dev.p.val
+```
+
+Chi-square test for improved logit regression model
+```{r}
+# Test residual deviance for lack-of-fit (if > 0.10, little-to-no lack-of-fit)
+dev.p.val_i <- 1 - pchisq(ch3ex3.bh_logit_improved$deviance, ch3ex3.bh_logit_improved$df.residual)
+
+dev.p.val_i
+```
+
+Both models show no lack of fit as the p-value is 1.
+
+```{r}
+# coefficients and 95% CI
+cbind(coef = coef(ch3ex3.bh_logit), confint(ch3ex3.bh_logit))
+
+cbind(coef = coef(ch3ex3.bh_logit_improved), confint(ch3ex3.bh_logit_improved))
+
+
+```
+
+```{r}
+## odds ratios and 95% CI
+exp(cbind(OR = coef(ch3ex3.bh_logit), confint(ch3ex3.bh_logit)))
+
+exp(cbind(OR = coef(ch3ex3.bh_logit_improved), confint(ch3ex3.bh_logit_improved)))
+```
+
+```{r}
+# evaluate how well the model fits the data
+# predicted probabilities
+Yhat <- fitted(ch3ex3.bh_logit)
+# the observed events 
+YObs <- as.numeric(check_2$badh)
+# calculate the correlation between the predicted and observed
+cor(Yhat,YObs)
+# visualize the correlation
+tempData = cbind(Yhat,YObs)
+require(ggplot2)
+qplot(factor(YObs), Yhat, data = check_2, 
+      geom=c("boxplot"), fill = factor(check_2$badh),title="Prediction versus Observed")
+```
+
+```{r}
+# evaluate how well the model fits the data
+# predicted probabilities
+Yhat <- fitted(ch3ex3.bh_logit_improved)
+# the observed events 
+YObs <- as.numeric(check_2$badh)
+# calculate the correlation between the predicted and observed
+cor(Yhat,YObs)
+# visualize the correlation
+tempData = cbind(Yhat,YObs)
+require(ggplot2)
+qplot(factor(YObs), Yhat, data = check_2, 
+      geom=c("boxplot"), fill = factor(check_2$badh),title="Prediction versus Observed")
+```
+
+The result shows that the the model can not seperate the two classes significantly. 
+
+```{r}
+#Finding accuracy of the model
+library(ROCR)
+pred<- check_2$fitted
+head(pred)
+check_2$badh
+hist(pred)
+
+pred <- prediction(pred, check_2$badh)
+eval <- performance(pred, "acc")
+plot(eval)
+max <- which.max(slot(eval,"y.values")[[1]])
+acc <- slot(eval,"y.values")[[1]][max]
+cut <- slot(eval,"x.values")[[1]][max]
+
+print(c(Accuracy = acc, Cuttoffvalue=cut))
+
+#Reciever Operating Chatasteristic(ROC) Curve
+
+roc <- performance(pred, "tpr","fpr")
+plot(roc)
+abline(0,1)
+
+#Area Under Curve(AUC)
+auc <- performance(pred,"auc")
+auc <- unlist(slot(auc,"y.values"))
+auc
+legend(.6,.3,round(auc,digits=3),title="AUC")
+
+for (i in x){
+if (check_2[i,]$se.fit >= cut){
+  check_2[i,"pred"]  <- 1
+}else{
+  check_2[i,"pred"]  <- 0
 }
-err.mat <- as.data.frame( cbind( train_err = errintrain, test_err = errintest , leaf_num = leaf.v ,cp_table = cp) )
-err.mat$leaf_num <- as.factor( err.mat$leaf_num  )
-err.mat <- unique(err.mat)
-err.mat <- err.mat %>% gather(type, error, train_err,test_err)
-print(err.mat)
+}
+
 ```
 
 
-The test errors and train errors according to different size of the leaf nodes are plotted.  Train errors generatlly decrease while the test errerors first decrease and then increase at leaf number eqauals to 4,5,6. As the gap between test and train error data is the smallest at leaf number equal to 4, the adequate number of leaf node would be 4. Other leaf numbers may result overfitting of predicted data more.
+Our step function didn't improve the 
+
+Tree model
 ```{r}
-data.plot <- err.mat %>% mutate(type = type)
-ggplot(data.plot, aes(x=leaf_num, y=error, shape = type, color=type)) + geom_line() +
-  geom_point(size=5) 
-
+check_2$badh <- as.factor(check_2$badh)
+ch3ex3.bh.tree <- rpart(badh~., data=check_2)
+prp(ch3ex3.bh.tree, varlen=3)
 ```
-
-Final decision tree model can be selected with the 4 decision (leaf) nodes WITH cp = 0.05
-
-```{r}
-tree_0.05 <- prune(tree, cp = 0.05)
-prp(tree_0.05, nn.cex = 1)
-
-```
-
 
 
 ```{r}
-#MSE for improved tree
-tree_pred_with_second_half_improved<-floor(predict(tree_0.05, check_2))
+#prediction - tree
+tree_pred_with_second_half<-predict(ch3ex3.bh.tree , check_2,type="class")
+t <- table (predictions = tree_pred_with_second_half, actual = check_2$badh)
+t
 
-current_error_train <- length(which(tree_pred_with_second_half_improved != check$TOTAL13))/length(tree_pred_with_second_half_improved)
+#accuracy matric
+sum(diag(t))/sum(t)
 
-MSE_tree_improved<-mean((check$TOTAL13-tree_pred_with_second_half_improved)^2)
-print(paste("MSE_tree is ",MSE_tree))
-print(paste("MSE_tree_improved is ",MSE_tree_improved))
-
-#MSE for improved regression model
-regression_pred_with_second_half_improved<-floor(predict(lm.AD.F, check_2))
-MSE_re_improved<-mean((check$TOTAL13-regression_pred_with_second_half_improved)^2)
-print(paste("MSE_re is ",MSE_re))
-print(paste("MSE_re_improved is ",MSE_re_improved))
+library(ROCR)
+library(pROC)
+tree_pred_with_second_half<-predict(ch3ex3.bh.tree,newdata = check_2,type ='prob')
+auc <- auc(check_2$badh,tree_pred_with_second_half[,2])
+plot(roc(check_2$badh,tree_pred_with_second_half[,2]))
+legend(.6,.3,round(auc,digits=3),title="AUC")
 ```
+Since Area under the curve for logit regression model is bigger, we chose logit regression model. 
