@@ -1,6 +1,6 @@
 ---
 title: "INDE498_HW2"
-author: "Steven Hwang, 	Haena Kim, Victoria Diaz"
+author: "Steven Hwang, Haena Kim, Victoria Diaz"
 output: html_document
 ---
 
@@ -78,6 +78,11 @@ anova(lm.AD.F ,lm.AD)
 Improvement for Tree
 ```{r,cache=FALSE}
 library(dplyr)
+
+library(tidyr)
+library(ggplot2)
+
+
 set.seed(1)
 errintrain <- NULL
 errintest <- NULL
@@ -242,9 +247,47 @@ library(aod)
 wald.test(b = coef(logit.AD.final), Sigma = vcov(logit.AD.final), Terms = 2)
 ```
 
-We will now test how our model works on data. We will randomnly choose 200 samples from the AD dataset to make AD.pred. We will create a 95% CI for these predications.
+If our model simply depended on one predicator, say HippoNV, then we would be able to test how our model works on the data. We would do this by randomly choosing 200 samples from the AD dataset to make AD.pred. Then we would visualize these predictions and their 95% CIs.
 ```{r} 
-# Dataset that we will test our prediction model on 
+# Dataset that we will test a model with one predictor: HippoNV
+AD.pred <- AD[sample(1:dim(AD)[1], 200),]
+
+# pred will have our predictions
+logit.HippoNV <- glm(AGE_bin ~ HippoNV, data = AD[!(names(AD) %in% c("ID"))], family = "binomial")
+pred <- predict(logit.HippoNV, AD.pred, type = "link", se.fit = TRUE) 
+AD.pred$fit <- pred$fit 
+AD.pred$se.fit <- pred$se.fit
+
+# CI for fitted values
+AD.pred <- within(AD.pred, {
+  # add "fitted" to make predictions at appended temp values 
+  fitted = exp(fit)/(1 + exp(fit))
+  fit.lower = exp(fit - 1.96 * se.fit) / (1 + exp(fit - 1.96 * se.fit))
+  fit.upper = exp(fit + 1.96 *se.fit) / (1 + exp(fit + 1.96 * se.fit))
+})
+
+# Visualizing the predication 
+library(ggplot2)
+newData <- AD.pred[order(AD.pred$HippoNV),]
+p <- ggplot(newData, aes(x = HippoNV, y = AGE_bin))
+# predicted curve and point-wise 95% CI
+p <- p + geom_ribbon(aes(x = HippoNV, ymin = fit.lower, ymax = fit.upper), alpha = 0.2)
+# p <- p + geom_line(aes(x = HippoNV, y = fitted), colour="red") # take the lines off
+# fitted values
+p <- p + geom_point(aes(y = fitted), size=2, colour="red")
+# observed values
+p <- p + geom_point(size = 2)
+p <- p + ylab("Probability")
+p <- p + labs(title = "Observed and predicted probability of Predicting Age")
+print(p)
+
+```
+
+Since our optimal model depends on several predictors, we can't use this method od visualization. 
+We will use the following confusion matrix to see how well we can predict the output based on our optimal model. 
+We see that the diagonal elements of our confusion matrix are not very optimized. This means that our model does not do a good job at predicting the outcome variable.
+```{r}
+# Dataset that we will test a model with one predictor: HippoNV
 AD.pred <- AD[sample(1:dim(AD)[1], 200),]
 
 # pred will have our predictions
@@ -260,21 +303,27 @@ AD.pred <- within(AD.pred, {
   fit.upper = exp(fit + 1.96 *se.fit) / (1 + exp(fit + 1.96 * se.fit))
 })
 
+# creating the confusion table
+AD.pred$AGE_bin_predict <-  ifelse(AD.pred$fitted >= 0.5, 1, 0)
+table(AD.pred$AGE_bin_predict, AD.pred$AGE_bin)
+```
 
-# Visualizing the predication 
-library(ggplot2)
-newData <- AD.pred[order(AD.pred$AGE_bin),]
-p <- ggplot(newData, aes(x = PTGENDER + PTEDUCAT + HippoNV + e4_1, y = AGE_bin))
-# predicted curve and point-wise 95% CI
-p <- p + geom_ribbon(aes(x = PTGENDER + PTEDUCAT + HippoNV + e4_1, ymin = fit.lower, ymax = fit.upper), alpha = 0.2)
-p <- p + geom_line(aes(x = PTGENDER + PTEDUCAT + HippoNV + e4_1, y = fitted), colour="red")
-# fitted values
-p <- p + geom_point(aes(y = fitted), size=2, colour="red")
-# observed values
-p <- p + geom_point(size = 2)
-p <- p + ylab("Probability")
-p <- p + labs(title = "Observed and predicted probability of Predicting Age")
-print(p)
+
+Another way to visualize our predictions would be to use the following boxplots. We see that our predictions are not very accurate. We see this since the boxes are overlapping and are not very thin. 
+
+```{r}
+# evaluate how well the model fits the data
+# predicted probabilities
+Yhat <- fitted(logit.AD.final)
+# the observed events 
+YObs <- AD$AGE_bin
+# calculate the correlation between the predicted and observed
+cor(Yhat,AD$AGE_bin)
+# visualize the correlation
+tempData = cbind(Yhat,AD$AGE_bin)
+require(ggplot2)
+qplot(factor(AD$AGE_bin), Yhat, data = AD, 
+      geom=c("boxplot"), fill = factor(AD$AGE_bin),title="Prediction versus Observed")
 ```
 
 We will test whether or not there is a lack-of-fit. Since dev.p.val is 8.162904e-05, which is not greater than 0.10, there is a large lack of model fit. We conclude that the error in our predictions are coming from a lack of fit from the model. 
